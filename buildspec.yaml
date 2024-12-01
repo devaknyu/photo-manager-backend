@@ -1,0 +1,27 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.8
+    commands:
+      # Install dependencies
+      echo Installing Python dependencies...
+      pip install -r index-photos/requirements.txt -t index-photos/
+      pip install -r search-photos/requirements.txt -t search-photos/
+
+  build:
+    commands:
+      # Package Lambda functions into .zip files
+      echo Packaging Lambda functions...
+      zip -r index-photos.zip index-photos/* 
+      zip -r search-photos.zip search-photos/*
+
+  post_build:
+    commands:
+      # Copy the .zip files to the S3 bucket for deployment
+      echo Build completed successfully!
+artifacts:
+  files:
+    - index-photos.zip
+    - search-photos.zip
