@@ -2,26 +2,23 @@ version: 0.2
 
 phases:
   install:
-    runtime-versions:
-      python: 3.8
     commands:
-      # Install dependencies
-      echo Installing Python dependencies...
-      pip install -r index-photos/requirements.txt -t index-photos/
-      pip install -r search-photos/requirements.txt -t search-photos/
-
+      - echo Installing dependencies...
+      - pip install --upgrade awscli  # Ensure AWS CLI is up to date
   build:
     commands:
-      # Package Lambda functions into .zip files
-      echo Packaging Lambda functions...
-      zip -r index-photos.zip index-photos/* 
-      zip -r search-photos.zip search-photos/*
-
+      - echo Packaging Lambda functions...
+      - cd index-photos
+      - zip -r ../index-photos.zip .  # Create a ZIP file for LF1
+      - cd ../search-photos
+      - zip -r ../search-photos.zip .  # Create a ZIP file for LF2
   post_build:
     commands:
-      # Copy the .zip files to the S3 bucket for deployment
-      echo Build completed successfully!
+      - echo Build completed!
+
 artifacts:
   files:
     - index-photos.zip
     - search-photos.zip
+    - cloudformation-template.yml  # Include CloudFormation template
+  discard-paths: yes
