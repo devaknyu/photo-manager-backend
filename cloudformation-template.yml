@@ -1,101 +1,35 @@
-AWSTemplateFormatVersion: '2010-09-09'
-Description: Backend pipeline for indexing and searching photos
-
 Resources:
-  IndexPhotosLambdaRole:
+  LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
+            Action: sts:AssumeRole
             Principal:
               Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: S3RekognitionOpenSearchAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:GetObject
-                  - s3:ListBucket
-                  - rekognition:DetectLabels
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource: '*'
-
-  SearchPhotosLambdaRole:
-    Type: AWS::IAM::Role
-    DeletionPolicy: Retain
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: OpenSearchAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                  - es:ESHttpGet
-                Resource: '*'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
   IndexPhotosLambda:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: IndexPhotos
-      Handler: LF1-IndexPhotos.lambda_handler
-      Runtime: python3.8
-      Role: !GetAtt IndexPhotosLambdaRole.Arn
+      FunctionName: IndexPhotosLambda
+      Handler: index-photos.LF1-IndexPhotos
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: nodejs16.x
       Code:
-        S3Bucket: devak-cloudformation-backend
-        S3Key: path/to/LF1-IndexPhotos.zip
-      Environment:
-        Variables:
-          OPENSEARCH_ENDPOINT: https://search-photo-pmodvyzfu77datuuqiedipn5te.us-west-2.es.amazonaws.com
-          MASTER_USER: admin
-          MASTER_PASSWORD: Devak@2002
+        S3Bucket: devak-lambda-deployment-buckets # Ensure this is the correct bucket name
+        S3Key: index-photos.zip
 
   SearchPhotosLambda:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: SearchPhotos
-      Handler: LF2-SearchPhotos.lambda_handler
-      Runtime: python3.8
-      Role: !GetAtt SearchPhotosLambdaRole.Arn
+      FunctionName: SearchPhotosLambda
+      Handler: search-photos.LF2-SearchPhotos
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: nodejs16.x
       Code:
-        S3Bucket: devak-cloudformation-backend
-        S3Key: path/to/LF2-SearchPhotos.zip
-      Environment:
-        Variables:
-          OPENSEARCH_ENDPOINT: https://search-photo-pmodvyzfu77datuuqiedipn5te.us-west-2.es.amazonaws.com
-          MASTER_USER: admin
-          MASTER_PASSWORD: Devak@2002
-
-  LambdaTriggerBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      NotificationConfiguration:
-        LambdaConfigurations:
-          - Event: s3:ObjectCreated:*
-            Function: !GetAtt IndexPhotosLambda.Arn
-
-Outputs:
-  IndexPhotosFunction:
-    Description: ARN of the IndexPhotos Lambda function
-    Value: !GetAtt IndexPhotosLambda.Arn
-
-  SearchPhotosFunction:
-    Description: ARN of the SearchPhotos Lambda function
-    Value: !GetAtt SearchPhotosLambda.Arn
+        S3Bucket: devak-lambda-deployment-buckets # Ensure this is the correct bucket name
+        S3Key: search-photos.zip
