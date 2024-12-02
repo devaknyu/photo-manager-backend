@@ -10,7 +10,7 @@ Resources:
   FrontendBucket:
     Type: "AWS::S3::Bucket"
     Properties:
-      BucketName: "photo-manager-frontend-bucket"
+      BucketName: "New-photo-manager-frontend-bucket"
       OwnershipControls:
         Rules:
           - ObjectOwnership: BucketOwnerEnforced
