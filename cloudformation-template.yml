@@ -1,54 +1,124 @@
 AWSTemplateFormatVersion: '2010-09-09'
+Description: Backend Infrastructure Stack for Photo Manager Application
+
+Parameters:
+  LambdaDeploymentBucket:
+    Type: String
+    Description: The S3 bucket where Lambda function zip files are stored
+
 Resources:
+  # Lambda Function: IndexPhotosLambda
   IndexPhotosLambda:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: index-photos
-      Handler: LF1-IndexPhotos.lambda_handler
-      Role: arn:aws:iam::${AWS::AccountId}:role/LambdaExecutionRole
+      FunctionName: IndexPhotosLambda
+      Handler: LF1-IndexPhotos.handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LambdaExecutionRole
       Code:
-        S3Bucket: !Ref LambdaBucket
+        S3Bucket: !Ref LambdaDeploymentBucket
         S3Key: index-photos.zip
-      Runtime: python3.8
+      Runtime: python3.9
+      Timeout: 30
       MemorySize: 128
-      Timeout: 60
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref PhotoStorageBucket
 
+  # Lambda Function: SearchPhotosLambda
   SearchPhotosLambda:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: search-photos
-      Handler: LF2-SearchPhotos.lambda_handler
-      Role: arn:aws:iam::${AWS::AccountId}:role/LambdaExecutionRole
+      FunctionName: SearchPhotosLambda
+      Handler: LF2-SearchPhotos.handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LambdaExecutionRole
       Code:
-        S3Bucket: !Ref LambdaBucket
+        S3Bucket: !Ref LambdaDeploymentBucket
         S3Key: search-photos.zip
-      Runtime: python3.8
+      Runtime: python3.9
+      Timeout: 30
       MemorySize: 128
-      Timeout: 60
+      Environment:
+        Variables:
+          PHOTO_BUCKET_NAME: !Ref PhotoStorageBucket
 
-  LambdaBucket:
+  # S3 Bucket for storing photos
+  PhotoStorageBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: photo-manager-backend-bucket
+      BucketName: !Sub photo-manager-photo-storage-${AWS::AccountId}
 
+  # IAM Role for Lambda Execution (This role is used by both Lambda functions)
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Effect: Allow
+          - Effect: "Allow"
             Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
       Policies:
         - PolicyName: LambdaExecutionPolicy
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              - Effect: Allow
+              - Effect: "Allow"
                 Action:
-                  - logs:*
-                  - s3:*
-                  - rekognition:*
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                Resource: !Sub arn:aws:s3:::photo-manager-photo-storage-${AWS::AccountId}/*
+              - Effect: "Allow"
+                Action:
+                  - "rekognition:DetectLabels"
+                  - "rekognition:IndexFaces"
                 Resource: "*"
+
+  # CloudFront Distribution for serving the frontend
+  FrontendCloudFront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: "true"
+        DefaultRootObject: index.html
+        Origins:
+          - Id: PhotoManagerFrontend
+            DomainName: !GetAtt PhotoStorageBucket.DomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Ref FrontendBucketOAI
+        DefaultCacheBehavior:
+          AllowedMethods: 
+            - GET
+            - HEAD
+          CachedMethods:
+            - GET
+            - HEAD
+          TargetOriginId: PhotoManagerFrontend
+          ViewerProtocolPolicy: redirect-to-https
+          ForwardedValues:
+            QueryString: "false"
+            Cookies:
+              Forward: "none"
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: "true"
+
+  # S3 Bucket for the frontend
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub photo-manager-frontend-${AWS::AccountId}
+
+  # CloudFront Origin Access Identity (OAI) for frontend
+  FrontendBucketOAI:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: "OAI for frontend bucket"
+
+Outputs:
+  CloudFrontURL:
+    Description: "URL for the CloudFront Distribution"
+    Value: !GetAtt FrontendCloudFront.DomainName
+  BucketName:
+    Description: "Name of the S3 bucket for the frontend"
+    Value: !Ref FrontendBucket
