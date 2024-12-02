@@ -4,7 +4,7 @@ Description: Frontend Infrastructure Stack for Photo Manager Application
 Parameters:
   LambdaDeploymentBucket:
     Type: String
-    Description: S3 bucket for storing Lambda deployment packages
+    Description: S3 bucket for Lambda deployment packages
 
 Resources:
   FrontendBucket:
